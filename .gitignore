@@ -1,0 +1,13 @@
+./node_modules
+./dist
+./build
+./coverage
+./logs
+./temp
+./cache
+./backups
+./backups
+./package-lock.json
+.DS_Store
+
+
