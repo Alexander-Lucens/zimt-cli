@@ -1,13 +1,43 @@
-./node_modules
-./dist
-./build
-./coverage
-./logs
-./temp
-./cache
-./backups
-./backups
-./package-lock.json
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Test coverage
+coverage/
+.nyc_output
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
 .DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+temp/
+cache/
+backups/
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
 

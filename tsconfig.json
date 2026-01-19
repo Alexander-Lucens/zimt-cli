@@ -6,8 +6,9 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
   },
   "include": ["src/**/*", "bin/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "src/templates/**/*"]
 }

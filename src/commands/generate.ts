@@ -7,7 +7,6 @@ import { getInterfaceTemplate, getPrismaRepoTemplate } from '../templates/reposi
 
 export const generateCommand = new Command('generate')
   .alias('g')
-  .alias('generate')
   .description('Generate a new resource (Repository pattern)')
   .argument('<name>', 'Name of the resource (e.g. users)')
   .action(async (name: string) => {
