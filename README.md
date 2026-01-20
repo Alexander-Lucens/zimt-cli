@@ -10,7 +10,7 @@
 * **Language:** TypeScript
 * **Runtime:** Node.js
 * **Core:** `commander` (Command handling)
-* **UI/Prompts:** `@clack/prompts` or `prompts` (Modern, clean interactive UI)
+* **UI/Prompts:** `@clack/prompts`
 * **Templating:** `ejs` (For project scaffolding)
 * **AST Manipulation:** `ts-morph` (For safe injection into existing files, e.g., `app.module.ts`)
 * **File System:** `fs-extra`
