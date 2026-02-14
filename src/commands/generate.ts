@@ -36,7 +36,7 @@ export const generateCommand = new Command('generate')
       await fs.writeFile(repoPath, getPrismaRepoTemplate(lowerName));
       console.log(chalk.green(`✅ Created Prisma Repository: prisma.${lowerName}.repository.ts`));
     } else {
-      console.log(chalk.yellow('⚠️ In-memory template is todo for you!'));
-      // Сюда добавишь вызов getInMemoryTemplate(lowerName) но это не точно
+      console.log(chalk.yellow('⚠️ choose then other posibilities of repository in the future') );
+
     }
   });

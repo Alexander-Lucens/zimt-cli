@@ -210,7 +210,6 @@ export class Create${Name}Dto {
   @IsString()
   name: string;
 
-  // Add more fields as needed
 }
 `;
 
@@ -375,7 +374,6 @@ async function updateAppModule(
     }
   }
 
-  // Save the file
   sourceFile.saveSync();
 }
 

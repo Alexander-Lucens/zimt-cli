@@ -4,6 +4,7 @@ import * as prompts from '@clack/prompts';
 import chalk from 'chalk';
 import { copyTemplateFiles, TemplateContext } from '../utils/template-manager';
 import { execSync } from 'child_process';
+import { group } from 'console';
 
 export interface ProjectConfig {
   name: string;
@@ -176,11 +177,12 @@ async function configurePackageManager(
 export async function promptProjectConfig(
   projectName?: string,
 ): Promise<ProjectConfig> {
+
   prompts.intro(chalk.cyan('ZIMT CLI - Create a production-ready NestJS project'));
 
-  const name =
-    projectName ||
-    ((await prompts.text({
+  const projectConfig = await prompts.group({
+    
+    name: () => prompts.text({
       message: 'What is your project name?',
       placeholder: 'my-awesome-api',
       validate: (value: string) => {
@@ -192,55 +194,122 @@ export async function promptProjectConfig(
         }
         return undefined;
       },
-    })) as string);
+    }),
 
-  const packageManager = ((await prompts.select({
-    message: 'Which package manager would you like to use?',
-    options: [
-      { value: 'npm', label: 'npm' },
-      { value: 'yarn', label: 'yarn' },
-      { value: 'pnpm', label: 'pnpm' },
-    ],
-  })) as 'npm' | 'yarn' | 'pnpm');
+    packageManager: () => prompts.select({
+      message: 'Which package manager would you like to use?',
+      options: [
+        { value: 'npm', label: 'npm' },
+        { value: 'yarn', label: 'yarn' },
+        { value: 'pnpm', label: 'pnpm' },
+      ],
+    }),
 
-  const database = ((await prompts.select({
-    message: 'Which database would you like to use?',
-    options: [
-      { value: 'prisma-postgresql', label: 'Prisma (PostgreSQL)' },
-    ],
-  })) as 'prisma-postgresql');
+    database: () => prompts.select({
+      message: 'Which database would you like to use?',
+      options: [
+        { value: 'prisma-postgresql', label: 'Prisma (PostgreSQL)' },
+      ],
+    }),
 
-  const authStrategy = ((await prompts.select({
-    message: 'Which authentication strategy would you like?',
-    options: [
-      { value: 'jwt', label: 'JWT (Stateless)' },
-    ],
-  })) as 'jwt');
+    authStrategy: () => prompts.select({
+      message: 'Which authentication strategy would you like?',
+      options: [
+        { value: 'jwt', label: 'JWT (Stateless)' },
+      ],
+    }),
 
-  const description = ((await prompts.text({
-    message: 'Project description (optional)',
-    placeholder: 'A production-ready NestJS application',
-    initialValue: '',
-  })) as string) || undefined;
+    description: () => prompts.text({
+      message: 'Project description (optional)',
+      placeholder: 'A production-ready NestJS application',
+      initialValue: '',
+    }),
 
-  const author = ((await prompts.text({
-    message: 'Author (optional)',
-    placeholder: 'Your Name',
-    initialValue: '',
-  })) as string) || undefined;
+    author: () => prompts.text({
+      message: 'Author (optional)',
+      placeholder: 'Your Name',
+      initialValue: '',
+    }),
 
-  const initializeGit = ((await prompts.confirm({
-    message: 'Initialize a git repository?',
-    initialValue: true,
-  })) as boolean);
+    initializeGit: () => prompts.confirm({
+      message: 'Initialize a git repository?',
+      initialValue: true,
+    }),
 
-  return {
-    name,
-    packageManager,
-    database,
-    authStrategy,
-    description,
-    author,
-    initializeGit: initializeGit as boolean,
-  };
+  },
+  {
+    onCancel: () => {
+      prompts.cancel('Project creation cancelled.');
+      process.exit(0);
+    },
+});
+
+
+  // const name =
+  //   projectName ||
+  //   ((await prompts.text({
+  //     message: 'What is your project name?',
+  //     placeholder: 'my-awesome-api',
+  //     validate: (value: string) => {
+  //       if (!value || value.trim().length === 0) {
+  //         return 'Project name is required';
+  //       }
+  //       if (!/^[a-z0-9-]+$/.test(value)) {
+  //         return 'Project name must be lowercase, alphanumeric with hyphens only';
+  //       }
+  //       return undefined;
+  //     },
+  //   })) as string);
+
+  // const packageManager = ((await prompts.select({
+  //   message: 'Which package manager would you like to use?',
+  //   options: [
+  //     { value: 'npm', label: 'npm' },
+  //     { value: 'yarn', label: 'yarn' },
+  //     { value: 'pnpm', label: 'pnpm' },
+  //   ],
+  // })) as 'npm' | 'yarn' | 'pnpm');
+
+  // const database = ((await prompts.select({
+  //   message: 'Which database would you like to use?',
+  //   options: [
+  //     { value: 'prisma-postgresql', label: 'Prisma (PostgreSQL)' },
+  //   ],
+  // })) as 'prisma-postgresql');
+
+  // const authStrategy = ((await prompts.select({
+  //   message: 'Which authentication strategy would you like?',
+  //   options: [
+  //     { value: 'jwt', label: 'JWT (Stateless)' },
+  //   ],
+  // })) as 'jwt');
+
+  // const description = ((await prompts.text({
+  //   message: 'Project description (optional)',
+  //   placeholder: 'A production-ready NestJS application',
+  //   initialValue: '',
+  // })) as string) || undefined;
+
+  // const author = ((await prompts.text({
+  //   message: 'Author (optional)',
+  //   placeholder: 'Your Name',
+  //   initialValue: '',
+  // })) as string) || undefined;
+
+  // const initializeGit = ((await prompts.confirm({
+  //   message: 'Initialize a git repository?',
+  //   initialValue: true,
+  // })) as boolean);
+
+  // return {
+  //   name,
+  //   packageManager,
+  //   database,
+  //   authStrategy,
+  //   description,
+  //   author,
+  //   initializeGit: initializeGit as boolean,
+  // };
+
+  return projectConfig;
 }
