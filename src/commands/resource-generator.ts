@@ -1,15 +1,17 @@
-import { Command } from 'commander';
-import * as fs from 'fs-extra';
-import * as path from 'path';
-import chalk from 'chalk';
-import { Project, SyntaxKind, Node, ImportDeclaration } from 'ts-morph';
-import * as prompts from '@clack/prompts';
+import { Command } from "commander";
+import * as fs from "fs-extra";
+import * as path from "path";
+import chalk from "chalk";
+import { Project, SyntaxKind, Node, ImportDeclaration } from "ts-morph";
+import * as prompts from "@clack/prompts";
 
-export const resourceGeneratorCommand = new Command('generate')
-  .alias('g')
-  .alias('p')
-  .description('Generate a new resource (Module, Controller, Service, DTO, Repository)')
-  .argument('<name>', 'Name of the resource (e.g. product, order)')
+export const resourceGeneratorCommand = new Command("generate")
+  .alias("g")
+  .alias("p")
+  .description(
+    "Generate a new resource (Module, Controller, Service, DTO, Repository)",
+  )
+  .argument("<name>", "Name of the resource (e.g. product, order)")
   .action(async (name: string) => {
     try {
       const resourceName = name.toLowerCase();
@@ -17,18 +19,20 @@ export const resourceGeneratorCommand = new Command('generate')
       const targetDir = process.cwd();
 
       // Verify we're in a NestJS project
-      const appModulePath = path.join(targetDir, 'src', 'app.module.ts');
+      const appModulePath = path.join(targetDir, "src", "app.module.ts");
       if (!fs.existsSync(appModulePath)) {
-        prompts.cancel('Not a NestJS project. Run this command from your project root.');
+        prompts.cancel(
+          "Not a NestJS project. Run this command from your project root.",
+        );
         process.exit(1);
       }
 
       const s = prompts.spinner();
 
       // Create resource directory structure
-      const resourceDir = path.join(targetDir, 'src', resourceName);
-      const dtoDir = path.join(resourceDir, 'dto');
-      const entitiesDir = path.join(resourceDir, 'entities');
+      const resourceDir = path.join(targetDir, "src", resourceName);
+      const dtoDir = path.join(resourceDir, "dto");
+      const entitiesDir = path.join(resourceDir, "entities");
 
       s.start(`Creating resource structure for ${ResourceName}...`);
       await fs.ensureDir(dtoDir);
@@ -36,7 +40,7 @@ export const resourceGeneratorCommand = new Command('generate')
       s.stop(`✓ Created directories`);
 
       // Generate files
-      s.start('Generating files...');
+      s.start("Generating files...");
       await generateModule(resourceDir, resourceName, ResourceName);
       await generateController(resourceDir, resourceName, ResourceName);
       await generateService(resourceDir, resourceName, ResourceName);
@@ -46,20 +50,25 @@ export const resourceGeneratorCommand = new Command('generate')
       // Generate test files
       await generateUnitTests(resourceDir, resourceName, ResourceName);
       await generateE2ETests(targetDir, resourceName, ResourceName);
-      s.stop('✓ Files generated');
+      s.stop("✓ Files generated");
 
       // Update app.module.ts using ts-morph
-      s.start('Updating app.module.ts...');
+      s.start("Updating app.module.ts...");
       await updateAppModule(appModulePath, resourceName, ResourceName);
-      s.stop('✓ app.module.ts updated');
+      s.stop("✓ app.module.ts updated");
 
-      prompts.outro(chalk.green(`\n✓ Resource "${ResourceName}" created successfully!\n`));
+      prompts.outro(
+        chalk.green(`\n✓ Resource "${ResourceName}" created successfully!\n`),
+      );
       console.log(chalk.yellow(`⚠️  Don't forget to:`));
-      console.log(chalk.yellow(`   1. Add the ${ResourceName} model to prisma/schema.prisma`));
+      console.log(
+        chalk.yellow(
+          `   1. Add the ${ResourceName} model to prisma/schema.prisma`,
+        ),
+      );
       console.log(chalk.yellow(`   2. Run: npx prisma generate\n`));
-
     } catch (error: any) {
-      prompts.cancel('Resource generation failed.');
+      prompts.cancel("Resource generation failed.");
       console.error(chalk.red(`\nError: ${error.message}\n`));
       if (error.stack) {
         console.error(error.stack);
@@ -72,7 +81,11 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-async function generateModule(dir: string, name: string, Name: string): Promise<void> {
+async function generateModule(
+  dir: string,
+  name: string,
+  Name: string,
+): Promise<void> {
   const content = `import { Module } from '@nestjs/common';
 import { ${Name}Controller } from './${name}.controller';
 import { ${Name}Service } from './${name}.service';
@@ -97,7 +110,11 @@ export class ${Name}Module {}
   await fs.writeFile(path.join(dir, `${name}.module.ts`), content);
 }
 
-async function generateController(dir: string, name: string, Name: string): Promise<void> {
+async function generateController(
+  dir: string,
+  name: string,
+  Name: string,
+): Promise<void> {
   const content = `import {
   Controller,
   Get,
@@ -153,7 +170,11 @@ export class ${Name}Controller {
   await fs.writeFile(path.join(dir, `${name}.controller.ts`), content);
 }
 
-async function generateService(dir: string, name: string, Name: string): Promise<void> {
+async function generateService(
+  dir: string,
+  name: string,
+  Name: string,
+): Promise<void> {
   const content = `import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { I${Name}Repository } from './${name}.repository.interface';
 import { Create${Name}Dto } from './dto/create-${name}.dto';
@@ -202,7 +223,11 @@ export class ${Name}Service {
   await fs.writeFile(path.join(dir, `${name}.service.ts`), content);
 }
 
-async function generateDTO(dtoDir: string, name: string, Name: string): Promise<void> {
+async function generateDTO(
+  dtoDir: string,
+  name: string,
+  Name: string,
+): Promise<void> {
   const createDto = `import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
 
 export class Create${Name}Dto {
@@ -223,7 +248,11 @@ export class Update${Name}Dto extends PartialType(Create${Name}Dto) {}
   await fs.writeFile(path.join(dtoDir, `update-${name}.dto.ts`), updateDto);
 }
 
-async function generateEntity(entitiesDir: string, name: string, Name: string): Promise<void> {
+async function generateEntity(
+  entitiesDir: string,
+  name: string,
+  Name: string,
+): Promise<void> {
   const content = `export interface ${Name} {
   id: string;
   name: string;
@@ -235,7 +264,11 @@ async function generateEntity(entitiesDir: string, name: string, Name: string): 
   await fs.writeFile(path.join(entitiesDir, `${name}.entity.ts`), content);
 }
 
-async function generateRepository(dir: string, name: string, Name: string): Promise<void> {
+async function generateRepository(
+  dir: string,
+  name: string,
+  Name: string,
+): Promise<void> {
   const interfaceContent = `import { Create${Name}Dto, Update${Name}Dto } from './dto/create-${name}.dto';
 import { ${Name} } from './entities/${name}.entity';
 
@@ -306,8 +339,14 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 }
 `;
 
-  await fs.writeFile(path.join(dir, `${name}.repository.interface.ts`), interfaceContent);
-  await fs.writeFile(path.join(dir, `${name}.repository.ts`), prismaRepoContent);
+  await fs.writeFile(
+    path.join(dir, `${name}.repository.interface.ts`),
+    interfaceContent,
+  );
+  await fs.writeFile(
+    path.join(dir, `${name}.repository.ts`),
+    prismaRepoContent,
+  );
 }
 
 async function updateAppModule(
@@ -321,7 +360,9 @@ async function updateAppModule(
   // Add import for the new module (check if it already exists)
   const existingImports = sourceFile.getImportDeclarations();
   const moduleImportExists = existingImports.some(
-    imp => imp.getModuleSpecifierValue() === `./${resourceName}/${resourceName}.module`
+    (imp) =>
+      imp.getModuleSpecifierValue() ===
+      `./${resourceName}/${resourceName}.module`,
   );
 
   if (!moduleImportExists) {
@@ -332,40 +373,47 @@ async function updateAppModule(
   }
 
   // Find the @Module decorator
-  const appModuleClass = sourceFile.getClass('AppModule');
+  const appModuleClass = sourceFile.getClass("AppModule");
   if (!appModuleClass) {
-    throw new Error('AppModule class not found');
+    throw new Error("AppModule class not found");
   }
 
-  const moduleDecorator = appModuleClass.getDecorator('Module');
+  const moduleDecorator = appModuleClass.getDecorator("Module");
   if (!moduleDecorator) {
-    throw new Error('@Module decorator not found');
+    throw new Error("@Module decorator not found");
   }
 
   // Get the imports array from the decorator argument
   const decoratorArgs = moduleDecorator.getArguments();
   if (!decoratorArgs || decoratorArgs.length === 0) {
-    throw new Error('@Module decorator has no arguments');
+    throw new Error("@Module decorator has no arguments");
   }
 
   const firstArg = decoratorArgs[0];
   if (firstArg.getKind() !== SyntaxKind.ObjectLiteralExpression) {
-    throw new Error('Invalid @Module decorator structure');
+    throw new Error("Invalid @Module decorator structure");
   }
 
   const objExpr = firstArg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
-  const importsProp = objExpr.getProperty('imports');
-  
+  const importsProp = objExpr.getProperty("imports");
+
   if (importsProp && importsProp.getKind() === SyntaxKind.PropertyAssignment) {
-    const propertyAssignment = importsProp.asKindOrThrow(SyntaxKind.PropertyAssignment);
+    const propertyAssignment = importsProp.asKindOrThrow(
+      SyntaxKind.PropertyAssignment,
+    );
     const initializer = propertyAssignment.getInitializer();
-    if (initializer && initializer.getKind() === SyntaxKind.ArrayLiteralExpression) {
-      const arrayExpr = initializer.asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
-      
+    if (
+      initializer &&
+      initializer.getKind() === SyntaxKind.ArrayLiteralExpression
+    ) {
+      const arrayExpr = initializer.asKindOrThrow(
+        SyntaxKind.ArrayLiteralExpression,
+      );
+
       // Check if module is already in the array
       const elements = arrayExpr.getElements();
       const moduleExists = elements.some(
-        (el: any) => el.getText().trim() === `${ResourceName}Module`
+        (el: any) => el.getText().trim() === `${ResourceName}Module`,
       );
 
       if (!moduleExists) {
@@ -630,7 +678,10 @@ describe('${Name}Controller', () => {
 `;
 
   await fs.writeFile(path.join(dir, `${name}.service.spec.ts`), serviceSpec);
-  await fs.writeFile(path.join(dir, `${name}.controller.spec.ts`), controllerSpec);
+  await fs.writeFile(
+    path.join(dir, `${name}.controller.spec.ts`),
+    controllerSpec,
+  );
 }
 
 async function generateE2ETests(
@@ -638,7 +689,7 @@ async function generateE2ETests(
   name: string,
   Name: string,
 ): Promise<void> {
-  const testDir = path.join(targetDir, 'test', name);
+  const testDir = path.join(targetDir, "test", name);
   await fs.ensureDir(testDir);
 
   const e2eSpec = `import { INestApplication, ValidationPipe } from '@nestjs/common';

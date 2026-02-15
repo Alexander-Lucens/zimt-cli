@@ -1,24 +1,20 @@
-import * as fs from 'fs-extra';
-import * as path from 'path';
-import * as prompts from '@clack/prompts';
-import chalk from 'chalk';
-import { copyTemplateFiles, TemplateContext } from '../utils/template-manager';
-import { execSync } from 'child_process';
-import { group } from 'console';
+import * as fs from "fs-extra";
+import * as path from "path";
+import * as prompts from "@clack/prompts";
+import chalk from "chalk";
+import { copyTemplateFiles, TemplateContext } from "../utils/template-manager";
+import { execSync } from "child_process";
 
-export interface ProjectConfig {
-  name: string;
-  packageManager: 'npm' | 'yarn' | 'pnpm';
-  database: 'prisma-postgresql';
-  authStrategy: 'jwt';
-  description?: string;
-  author?: string;
-  initializeGit?: boolean;
-}
+import { ProjectConfig } from "../types";
+
+const CURRENT_TEMPLATE_NAME = "template_v002";
 
 // Helper to get __dirname in TypeScript/CommonJS context
 // @ts-ignore - __dirname is available in CommonJS runtime
-const dirname: string = typeof __dirname !== 'undefined' ? __dirname : path.dirname(require.main?.filename || '');
+const dirname: string =
+  typeof __dirname !== "undefined"
+    ? __dirname
+    : path.dirname(require.main?.filename || "");
 
 // Get template directory - Template is now in src/templates/zimt-template
 // In development: __dirname = src/commands, so template is at ../templates/zimt-template
@@ -28,10 +24,10 @@ function getTemplateDir(): string {
   // When compiled: dirname = dist/src/commands, so we need ../../../src/templates/zimt-template
   // When in dev with ts-node: dirname = src/commands, so we need ../templates/zimt-template
   const possiblePaths = [
-    path.resolve(dirname, '../templates/zimt-template'), // From src/commands (dev)
-    path.resolve(dirname, '../../../src/templates/zimt-template'), // From dist/src/commands (compiled)
-    path.resolve(dirname, '../../src/templates/zimt-template'), // Alternative build structure
-    path.resolve(process.cwd(), 'src/templates/zimt-template'), // Fallback from project root
+    path.resolve(dirname, "../templates", CURRENT_TEMPLATE_NAME), // From src/commands (dev)
+    path.resolve(dirname, "../../../src/templates", CURRENT_TEMPLATE_NAME), // From dist/src/commands (compiled)
+    path.resolve(dirname, "../../src/templates", CURRENT_TEMPLATE_NAME), // Alternative build structure
+    path.resolve(process.cwd(), "src/templates", CURRENT_TEMPLATE_NAME), // Fallback from project root
   ];
 
   for (const possiblePath of possiblePaths) {
@@ -41,7 +37,7 @@ function getTemplateDir(): string {
   }
 
   // Fallback to the most likely path
-  return path.resolve(dirname, '../templates/zimt-template');
+  return path.resolve(dirname, "../templates", CURRENT_TEMPLATE_NAME);
 }
 
 // Get template directory - initialize lazily
@@ -54,7 +50,10 @@ function getTemplateDirectory(): string {
   return TEMPLATE_DIR;
 }
 
-export async function createProject(config: ProjectConfig, targetDir: string): Promise<void> {
+export async function createProject(
+  config: ProjectConfig,
+  targetDir: string,
+): Promise<void> {
   const TEMPLATE_DIR = getTemplateDirectory();
 
   // Verify template directory exists
@@ -65,12 +64,12 @@ export async function createProject(config: ProjectConfig, targetDir: string): P
   const s = prompts.spinner();
 
   // Create target directory
-  s.start('Creating project directory...');
+  s.start("Creating project directory...");
   await fs.ensureDir(targetDir);
-  s.stop('✓ Project directory created');
+  s.stop("✓ Project directory created");
 
   // Copy template files using template manager
-  s.start('Copying template files...');
+  s.start("Copying template files...");
   const templateContext: TemplateContext = {
     projectName: config.name,
     description: config.description,
@@ -80,7 +79,7 @@ export async function createProject(config: ProjectConfig, targetDir: string): P
     authStrategy: config.authStrategy,
   };
   await copyTemplateFiles(TEMPLATE_DIR, targetDir, templateContext);
-  s.stop('✓ Template files copied');
+  s.stop("✓ Template files copied");
 
   // Handle package manager specific files
   s.start(`Configuring for ${config.packageManager}...`);
@@ -89,53 +88,56 @@ export async function createProject(config: ProjectConfig, targetDir: string): P
 
   // Initialize git if requested
   if (config.initializeGit) {
-    s.start('Initializing git repository...');
+    s.start("Initializing git repository...");
     try {
-      execSync('git init', { cwd: targetDir, stdio: 'ignore' });
-      s.stop('✓ Git repository initialized');
+      execSync("git init", { cwd: targetDir, stdio: "ignore" });
+      s.stop("✓ Git repository initialized");
     } catch (error) {
-      s.stop('⚠ Git initialization skipped (git not available)');
+      s.stop("⚠ Git initialization skipped (git not available)");
     }
   }
 
   // Install dependencies
   s.start(`Installing dependencies with ${config.packageManager}...`);
   try {
-    const installCommand = 
-      config.packageManager === 'yarn' ? 'yarn install' :
-      config.packageManager === 'pnpm' ? 'pnpm install' :
-      'npm install';
-    
-    execSync(installCommand, { 
-      cwd: targetDir, 
-      stdio: 'pipe',
-      env: { ...process.env, NODE_ENV: 'production' },
+    const installCommand =
+      config.packageManager === "yarn"
+        ? "yarn install"
+        : config.packageManager === "pnpm"
+          ? "pnpm install"
+          : "npm install";
+
+    execSync(installCommand, {
+      cwd: targetDir,
+      stdio: "pipe",
+      env: { ...process.env, NODE_ENV: "production" },
     });
     s.stop(`✓ Dependencies installed with ${config.packageManager}`);
   } catch (error: any) {
-    s.stop(`⚠ Installation failed, run manually: ${config.packageManager} install`);
+    s.stop(
+      `⚠ Installation failed, run manually: ${config.packageManager} install`,
+    );
     console.warn(chalk.yellow(`Warning: ${error.message}`));
   }
-
 }
 
 async function configurePackageManager(
   targetDir: string,
-  packageManager: 'npm' | 'yarn' | 'pnpm',
+  packageManager: "npm" | "yarn" | "pnpm",
 ): Promise<void> {
-  const packageJsonPath = path.join(targetDir, 'package.json');
-  
+  const packageJsonPath = path.join(targetDir, "package.json");
+
   if (!fs.existsSync(packageJsonPath)) {
     return;
   }
 
   try {
-    const pkgContent = await fs.readFile(packageJsonPath, 'utf-8');
+    const pkgContent = await fs.readFile(packageJsonPath, "utf-8");
     const pkg = JSON.parse(pkgContent);
 
     // Remove package-lock.json for yarn and pnpm
-    if (packageManager !== 'npm') {
-      const lockFilePath = path.join(targetDir, 'package-lock.json');
+    if (packageManager !== "npm") {
+      const lockFilePath = path.join(targetDir, "package-lock.json");
       if (fs.existsSync(lockFilePath)) {
         await fs.remove(lockFilePath);
       }
@@ -144,15 +146,15 @@ async function configurePackageManager(
     // Update scripts to use the selected package manager
     if (pkg.scripts) {
       const scriptUpdates: Record<string, string> = {};
-      
+
       for (const [scriptName, scriptValue] of Object.entries(pkg.scripts)) {
-        if (typeof scriptValue === 'string') {
+        if (typeof scriptValue === "string") {
           // Replace npx with appropriate package manager command
           let updatedScript = scriptValue;
-          if (packageManager === 'yarn') {
-            updatedScript = updatedScript.replace(/npx /g, 'yarn ');
-          } else if (packageManager === 'pnpm') {
-            updatedScript = updatedScript.replace(/npx /g, 'pnpm ');
+          if (packageManager === "yarn") {
+            updatedScript = updatedScript.replace(/npx /g, "yarn ");
+          } else if (packageManager === "pnpm") {
+            updatedScript = updatedScript.replace(/npx /g, "pnpm ");
           }
           // Only update if script actually changed
           if (updatedScript !== scriptValue) {
@@ -165,151 +167,95 @@ async function configurePackageManager(
       Object.assign(pkg.scripts, scriptUpdates);
     }
 
-    // Write updated package.json
-    await fs.writeFile(packageJsonPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+    await fs.writeFile(
+      packageJsonPath,
+      JSON.stringify(pkg, null, 2) + "\n",
+      "utf-8",
+    );
   } catch (error) {
     // If updating fails, just skip it - not critical
-    console.warn(`Warning: Could not configure package.json for ${packageManager}`);
+    console.warn(
+      `Warning: Could not configure package.json for ${packageManager}`,
+    );
   }
 }
-
 
 export async function promptProjectConfig(
   projectName?: string,
 ): Promise<ProjectConfig> {
+  prompts.intro(
+    chalk.cyan("ZIMT CLI - Create a production-ready NestJS project"),
+  );
 
-  prompts.intro(chalk.cyan('ZIMT CLI - Create a production-ready NestJS project'));
+  const projectConfig = await prompts.group(
+    {
+      name: projectName
+        ? async () => projectName
+        : async () =>
+            await prompts.text({
+              message: "What is your project name?",
+              placeholder: "my-awesome-api",
+              validate: (value: string) => {
+                if (!value || value.trim().length === 0) {
+                  return "Project name is required";
+                }
+                if (!/^[a-z0-9-]+$/.test(value)) {
+                  return "Project name must be lowercase, alphanumeric with hyphens only";
+                }
+                return undefined;
+              },
+            }),
 
-  const projectConfig = await prompts.group({
-    
-    name: () => prompts.text({
-      message: 'What is your project name?',
-      placeholder: 'my-awesome-api',
-      validate: (value: string) => {
-        if (!value || value.trim().length === 0) {
-          return 'Project name is required';
-        }
-        if (!/^[a-z0-9-]+$/.test(value)) {
-          return 'Project name must be lowercase, alphanumeric with hyphens only';
-        }
-        return undefined;
-      },
-    }),
+      packageManager: () =>
+        prompts.select({
+          message: "Which package manager would you like to use?",
+          options: [
+            { value: "npm", label: "npm" },
+            { value: "yarn", label: "yarn" },
+            { value: "pnpm", label: "pnpm" },
+          ],
+        }),
 
-    packageManager: () => prompts.select({
-      message: 'Which package manager would you like to use?',
-      options: [
-        { value: 'npm', label: 'npm' },
-        { value: 'yarn', label: 'yarn' },
-        { value: 'pnpm', label: 'pnpm' },
-      ],
-    }),
+      database: () =>
+        prompts.select({
+          message: "Which database would you like to use?",
+          options: [
+            { value: "prisma-postgresql", label: "Prisma (PostgreSQL)" },
+          ],
+        }),
 
-    database: () => prompts.select({
-      message: 'Which database would you like to use?',
-      options: [
-        { value: 'prisma-postgresql', label: 'Prisma (PostgreSQL)' },
-      ],
-    }),
+      authStrategy: () =>
+        prompts.select({
+          message: "Which authentication strategy would you like?",
+          options: [{ value: "jwt", label: "JWT (Stateless)" }],
+        }),
 
-    authStrategy: () => prompts.select({
-      message: 'Which authentication strategy would you like?',
-      options: [
-        { value: 'jwt', label: 'JWT (Stateless)' },
-      ],
-    }),
+      description: () =>
+        prompts.text({
+          message: "Project description (optional)",
+          placeholder: "A production-ready NestJS application",
+          initialValue: "",
+        }),
 
-    description: () => prompts.text({
-      message: 'Project description (optional)',
-      placeholder: 'A production-ready NestJS application',
-      initialValue: '',
-    }),
+      author: () =>
+        prompts.text({
+          message: "Author (optional)",
+          placeholder: "Your Name",
+          initialValue: "",
+        }),
 
-    author: () => prompts.text({
-      message: 'Author (optional)',
-      placeholder: 'Your Name',
-      initialValue: '',
-    }),
-
-    initializeGit: () => prompts.confirm({
-      message: 'Initialize a git repository?',
-      initialValue: true,
-    }),
-
-  },
-  {
-    onCancel: () => {
-      prompts.cancel('Project creation cancelled.');
-      process.exit(0);
+      initializeGit: () =>
+        prompts.confirm({
+          message: "Initialize a git repository?",
+          initialValue: true,
+        }),
     },
-});
-
-
-  // const name =
-  //   projectName ||
-  //   ((await prompts.text({
-  //     message: 'What is your project name?',
-  //     placeholder: 'my-awesome-api',
-  //     validate: (value: string) => {
-  //       if (!value || value.trim().length === 0) {
-  //         return 'Project name is required';
-  //       }
-  //       if (!/^[a-z0-9-]+$/.test(value)) {
-  //         return 'Project name must be lowercase, alphanumeric with hyphens only';
-  //       }
-  //       return undefined;
-  //     },
-  //   })) as string);
-
-  // const packageManager = ((await prompts.select({
-  //   message: 'Which package manager would you like to use?',
-  //   options: [
-  //     { value: 'npm', label: 'npm' },
-  //     { value: 'yarn', label: 'yarn' },
-  //     { value: 'pnpm', label: 'pnpm' },
-  //   ],
-  // })) as 'npm' | 'yarn' | 'pnpm');
-
-  // const database = ((await prompts.select({
-  //   message: 'Which database would you like to use?',
-  //   options: [
-  //     { value: 'prisma-postgresql', label: 'Prisma (PostgreSQL)' },
-  //   ],
-  // })) as 'prisma-postgresql');
-
-  // const authStrategy = ((await prompts.select({
-  //   message: 'Which authentication strategy would you like?',
-  //   options: [
-  //     { value: 'jwt', label: 'JWT (Stateless)' },
-  //   ],
-  // })) as 'jwt');
-
-  // const description = ((await prompts.text({
-  //   message: 'Project description (optional)',
-  //   placeholder: 'A production-ready NestJS application',
-  //   initialValue: '',
-  // })) as string) || undefined;
-
-  // const author = ((await prompts.text({
-  //   message: 'Author (optional)',
-  //   placeholder: 'Your Name',
-  //   initialValue: '',
-  // })) as string) || undefined;
-
-  // const initializeGit = ((await prompts.confirm({
-  //   message: 'Initialize a git repository?',
-  //   initialValue: true,
-  // })) as boolean);
-
-  // return {
-  //   name,
-  //   packageManager,
-  //   database,
-  //   authStrategy,
-  //   description,
-  //   author,
-  //   initializeGit: initializeGit as boolean,
-  // };
-
-  return projectConfig;
+    {
+      onCancel: () => {
+        prompts.cancel("Project creation cancelled.");
+        process.exit(0);
+      },
+    },
+  );
+  return projectConfig as ProjectConfig;
 }

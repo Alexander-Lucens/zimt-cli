@@ -20,7 +20,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:unit": "jest --testMatch \"<rootDir>/src/**/*.spec.ts\" --noStackTrace --runInBand",
-    "test:e2e": "jest --testMatch \"<rootDir>/test/**/*.e2e-spec.ts\" --noStackTrace --runInBand",
+    
     "scan": "docker scout quickview <%= projectName %>-app",
     "docker:build": "docker compose up -d --build && sleep 20 && docker compose exec -T app <%= packageManager === 'yarn' ? 'yarn' : packageManager === 'pnpm' ? 'pnpm' : 'npx' %> prisma migrate deploy || <%= packageManager === 'yarn' ? 'yarn' : packageManager === 'pnpm' ? 'pnpm' : 'npx' %> prisma migrate deploy",
     "docker:down": "docker compose down -v"
@@ -31,7 +31,7 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/platform-express": "^10.4.15",
-    "@nestjs/swagger": "^7.1.17",
+    "@nestjs/swagger": "^11.2.6",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
@@ -46,7 +46,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@nestjs/cli": "^10.4.9",
+    "@nestjs/cli": "^11.0.16",
     "@nestjs/schematics": "^10.0.3",
     "@nestjs/testing": "^10.2.8",
     "@prisma/client": "^5.22.0",
