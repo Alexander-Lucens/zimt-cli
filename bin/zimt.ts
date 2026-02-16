@@ -12,7 +12,7 @@ const program = new Command();
 program
     .name('zimt')
     .description('ZIMT CLI - The secret ingredient for production-ready NestJS apps')
-    .version('0.0.2');
+    .version('0.0.3');
 
 program
     .command('new [name]')

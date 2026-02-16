@@ -1,6 +1,6 @@
 {
     "name": "zimt-cli",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "The secret ingredient for production-ready NestJS apps",
     "main": "dist/index.js",
     "bin": {
@@ -12,7 +12,7 @@
     ],
     "scripts": {
         "build": "tsc && npm run copy-templates",
-        "copy-templates": "copyfiles -u 1 \"src/templates/**/*\" dist/",
+        "copy-templates": "copyfiles \"src/templates/**/*\" dist/",
         "start": "ts-node bin/zimt.ts",
         "dev": "ts-node bin/zimt.ts",
         "lint": "eslint 'src/**/*.ts' --fix",
