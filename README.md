@@ -1,9 +1,16 @@
 # ZIMT CLI
 **The secret ingredient for production-ready NestJS applications.**
 
+## Version 0.0.2
+
+### Features:
+- Improved test coverage.
+- Fixed Prisma unique constraint error handling.
+- Updated Docker setup for better reliability.
+
+
 ## 1. Project Overview
-**Goal:** A CLI tool for "lazy" Senior/Middle developers to generate production-ready NestJS boilerplate with Auth, RBAC, and Prisma in seconds.
-**Philosophy:** "Opinionated but flexible." (Standardized architecture, best practices out-of-the-box).
+**Goal:** A CLI tool for developers to generate NestJS boilerplate with Auth, RBAC, and Prisma in seconds.
 **Target Audience:** NestJS developers, Startups, Agencies.
 
 ## 2. Tech Stack
@@ -56,6 +63,8 @@ If arguments are not provided, launch interactive mode:
     * [x] Swagger UI
     * [x] Mailer Setup
 5.  **Git:** Initialize repo? `Yes` / `No`
+
+_Please create .env file with names as in .env.example, and insure that you have active db or just run it in docker with *npm run docker:build*._
 
 ## 6. Implementation Plan (MVP)
 

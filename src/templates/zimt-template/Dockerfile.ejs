@@ -1,0 +1,36 @@
+FROM node:22.14.0-alpine AS builder
+
+WORKDIR /usr/src/app
+
+RUN apk add --no-cache openssl
+
+COPY package*.json ./
+<% if (packageManager === 'yarn') { %>COPY yarn.lock ./<% } else if (packageManager === 'pnpm') { %>COPY pnpm-lock.yaml ./<% } else { %>COPY package-lock.json ./<% } %>
+COPY prisma ./prisma/
+
+<% if (packageManager === 'yarn') { %>RUN yarn install<% } else if (packageManager === 'pnpm') { %>RUN corepack enable pnpm && pnpm install<% } else { %>RUN npm install<% } %>
+COPY . .
+RUN <% if (packageManager === 'yarn') { %>yarn<% } else if (packageManager === 'pnpm') { %>pnpm<% } else { %>npx<% } %> prisma generate
+RUN <% if (packageManager === 'yarn') { %>yarn<% } else if (packageManager === 'pnpm') { %>pnpm<% } else { %>npm<% } %> run build
+
+FROM node:22.14.0-alpine
+
+WORKDIR /usr/src/app
+
+RUN apk add --no-cache openssl
+
+COPY package*.json ./
+
+RUN <% if (packageManager === 'yarn') { %>yarn install --production<% } else if (packageManager === 'pnpm') { %>corepack enable pnpm && pnpm install --prod<% } else { %>npm install --only=production<% } %>
+
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/prisma ./prisma
+COPY --from=builder /usr/src/app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
+
+COPY --from=builder /usr/src/app/doc ./doc
+
+ENV PORT=4000
+EXPOSE ${PORT}
+
+CMD ["node", "dist/src/main.js"]

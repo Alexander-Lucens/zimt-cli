@@ -1,6 +1,5 @@
-
-
-export const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
+export const capitalize = (str: string) =>
+  str.charAt(0).toUpperCase() + str.slice(1);
 
 export const getInterfaceTemplate = (name: string) => {
   const PascalName = capitalize(name);
