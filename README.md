@@ -1,7 +1,8 @@
 # ZIMT CLI
 **The secret ingredient for production-ready NestJS applications.**
 
-## Version 0.0.2
+## ⚠️ Status: Alpha / MVP.
+Recommended package manager: npm. Support for yarn and pnpm is experimental.
 
 ### Features:
 - Improved test coverage.

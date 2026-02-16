@@ -6,8 +6,13 @@
     "bin": {
         "zimt": "./dist/bin/zimt.js"
     },
+    "files": [
+        "dist",
+        "README.md"
+    ],
     "scripts": {
-        "build": "tsc",
+        "build": "tsc && npm run copy-templates",
+        "copy-templates": "copyfiles -u 1 \"src/templates/**/*\" dist/",
         "start": "ts-node bin/zimt.ts",
         "dev": "ts-node bin/zimt.ts",
         "lint": "eslint 'src/**/*.ts' --fix",
@@ -39,6 +44,7 @@
         "@types/node": "^20.19.33",
         "@typescript-eslint/eslint-plugin": "^8.55.0",
         "@typescript-eslint/parser": "^8.55.0",
+        "copyfiles": "^2.4.1",
         "eslint": "^9.39.2",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-prettier": "^5.5.5",
