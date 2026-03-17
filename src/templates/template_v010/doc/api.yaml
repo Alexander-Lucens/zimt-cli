@@ -1,0 +1,338 @@
+openapi: 3.0.0
+info:
+  title: Auth Service Template API
+  description: A production-ready NestJS template with JWT Authentication, RBAC, Prisma ORM, and Docker
+  version: 1.0.0
+
+servers:
+  - url: /
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        login:
+          type: string
+          example: 'TestUser'
+        roles:
+          type: array
+          items:
+            type: string
+          example: ['user']
+        version:
+          type: number
+          example: 1
+        createdAt:
+          type: number
+          example: 1655000000
+        updatedAt:
+          type: number
+          example: 1655000000
+      required:
+        - id
+        - login
+        - roles
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token
+        refreshToken:
+          type: string
+          description: JWT refresh token
+      required:
+        - accessToken
+        - refreshToken
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          example: 'ok'
+        timestamp:
+          type: string
+          format: date-time
+  responses:
+    UnauthorizedError:
+      description: Access token is missing or invalid
+    ForbiddenError:
+      description: Insufficient permissions
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - System
+      security: []
+      summary: Health check
+      description: Returns service health status
+      responses:
+        200:
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+
+  /auth/signup:
+    post:
+      tags:
+        - Auth
+      security: []
+      summary: Sign up a new user
+      description: Creates a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login:
+                  type: string
+                  minLength: 3
+                  maxLength: 255
+                  description: Username
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  maxLength: 64
+                  description: Password (min 8 characters)
+              required:
+                - login
+                - password
+      responses:
+        201:
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        400:
+          description: Bad request (validation error)
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      security: []
+      summary: Login
+      description: Authenticates a user and returns JWT tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login:
+                  type: string
+                  description: Username
+                password:
+                  type: string
+                  format: password
+                  description: Password
+              required:
+                - login
+                - password
+      responses:
+        200:
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        403:
+          description: Incorrect login or password
+
+  /auth/refresh:
+    post:
+      tags:
+        - Auth
+      security: []
+      summary: Refresh access token
+      description: Refreshes the access token using a refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Refresh token
+              required:
+                - refreshToken
+      responses:
+        200:
+          description: Tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        403:
+          description: Invalid refresh token
+
+  /user:
+    get:
+      tags:
+        - Users
+      summary: Get all users (admin only)
+      description: Returns all users. Requires admin role.
+      responses:
+        200:
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+    post:
+      tags:
+        - Users
+      summary: Create user (admin only)
+      description: Creates a new user. Requires admin role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login:
+                  type: string
+                  minLength: 3
+                  maxLength: 255
+                  description: The user's login
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 64
+                  description: The user's password
+              required:
+                - login
+                - password
+      responses:
+        201:
+          description: The user has been created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        400:
+          description: Bad request. Body does not contain required fields
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+
+  /user/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags:
+        - Users
+      summary: Get single user by id
+      description: Get single user by id. Requires admin or user role.
+      responses:
+        200:
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        400:
+          description: Bad request. userId is invalid (not uuid)
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        404:
+          description: User not found
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user (admin only)
+      description: Deletes user by ID. Requires admin role.
+      responses:
+        204:
+          description: The user has been deleted
+        400:
+          description: Bad request. userId is invalid (not uuid)
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        404:
+          description: User not found
+
+  /user/{userId}/password:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags:
+        - Users
+      summary: Update a user's password
+      description: Updates a user's password by ID. Users can update their own password, admins can update any.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                oldPassword:
+                  type: string
+                  description: The user's old password
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 64
+                  description: The user's new password
+              required:
+                - oldPassword
+                - newPassword
+      responses:
+        200:
+          description: The password has been updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        400:
+          description: Bad request. userId is invalid (not uuid)
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          description: Old password is wrong or insufficient permissions
+        404:
+          description: User not found

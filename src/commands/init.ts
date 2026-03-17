@@ -7,7 +7,7 @@ import { execSync } from "child_process";
 
 import { ProjectConfig } from "../types";
 
-const CURRENT_TEMPLATE_NAME = "template_v002";
+const CURRENT_TEMPLATE_NAME = "template_v010";
 
 // Helper to get __dirname in TypeScript/CommonJS context
 // @ts-ignore - __dirname is available in CommonJS runtime
