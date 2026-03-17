@@ -5,9 +5,17 @@ import chalk from "chalk";
 import { copyTemplateFiles, TemplateContext } from "../utils/template-manager";
 import { execSync } from "child_process";
 
-import { ProjectConfig } from "../types";
+import { AuthStrategy, ProjectConfig } from "../types";
 
 const CURRENT_TEMPLATE_NAME = "template_v010";
+
+const AUTH_OPTIONS: Array<{ value: AuthStrategy; label: string }> = [
+  { value: "jwt", label: "JWT" },
+  { value: "local", label: "Local (email/password)" },
+  { value: "oauth-google", label: "OAuth Google" },
+  { value: "oauth-github", label: "OAuth GitHub" },
+  { value: "api-key", label: "API Key" },
+];
 
 // Helper to get __dirname in TypeScript/CommonJS context
 // @ts-ignore - __dirname is available in CommonJS runtime
@@ -74,12 +82,17 @@ export async function createProject(
     projectName: config.name,
     description: config.description,
     author: config.author,
+    license: config.license,
     packageManager: config.packageManager,
     database: config.database,
-    authStrategy: config.authStrategy,
+    authStrategies: config.authStrategies,
   };
   await copyTemplateFiles(TEMPLATE_DIR, targetDir, templateContext);
   s.stop("✓ Template files copied");
+
+  s.start("Applying auth configuration...");
+  await applyAuthSelections(targetDir, config.authStrategies);
+  s.stop("✓ Auth configuration applied");
 
   // Handle package manager specific files
   s.start(`Configuring for ${config.packageManager}...`);
@@ -182,6 +195,7 @@ async function configurePackageManager(
 
 export async function promptProjectConfig(
   projectName?: string,
+  preset?: Partial<ProjectConfig>,
 ): Promise<ProjectConfig> {
   prompts.intro(
     chalk.cyan("ZIMT CLI - Create a production-ready NestJS project"),
@@ -214,6 +228,7 @@ export async function promptProjectConfig(
             { value: "yarn", label: "yarn" },
             { value: "pnpm", label: "pnpm" },
           ],
+          initialValue: preset?.packageManager || "npm",
         }),
 
       database: () =>
@@ -222,32 +237,51 @@ export async function promptProjectConfig(
           options: [
             { value: "prisma-postgresql", label: "Prisma (PostgreSQL)" },
           ],
+          initialValue: preset?.database || "prisma-postgresql",
         }),
 
-      authStrategy: () =>
-        prompts.select({
-          message: "Which authentication strategy would you like?",
-          options: [{ value: "jwt", label: "JWT (Stateless)" }],
-        }),
+      authStrategies: async () => {
+        const selected = await (prompts as any).multiselect({
+          message: "Choose authentication strategies",
+          options: AUTH_OPTIONS,
+          initialValues:
+            preset?.authStrategies && preset.authStrategies.length > 0
+              ? preset.authStrategies
+              : ["jwt"],
+          required: true,
+        });
+
+        if (!selected || selected.length === 0) {
+          return ["jwt"];
+        }
+        return selected as AuthStrategy[];
+      },
 
       description: () =>
         prompts.text({
           message: "Project description (optional)",
           placeholder: "A production-ready NestJS application",
-          initialValue: "",
+          initialValue: preset?.description || "",
         }),
 
       author: () =>
         prompts.text({
           message: "Author (optional)",
           placeholder: "Your Name",
-          initialValue: "",
+          initialValue: preset?.author || "",
+        }),
+
+      license: () =>
+        prompts.text({
+          message: "License (optional)",
+          placeholder: "MIT",
+          initialValue: preset?.license || "MIT",
         }),
 
       initializeGit: () =>
         prompts.confirm({
           message: "Initialize a git repository?",
-          initialValue: true,
+          initialValue: preset?.initializeGit ?? true,
         }),
     },
     {
@@ -257,5 +291,121 @@ export async function promptProjectConfig(
       },
     },
   );
-  return projectConfig as ProjectConfig;
+
+  return normalizeProjectConfig(projectConfig as Partial<ProjectConfig>);
+}
+
+export function parseProjectConfigInput(input: string): Partial<ProjectConfig> {
+  let rawInput = input.trim();
+
+  if (fs.existsSync(rawInput)) {
+    rawInput = fs.readFileSync(rawInput, "utf-8");
+  }
+
+  try {
+    return JSON.parse(rawInput) as Partial<ProjectConfig>;
+  } catch {
+    // Pseudo format example:
+    // name: my-api
+    // packageManager: npm
+    // authStrategies: jwt,oauth-google
+    const parsed: Record<string, any> = {};
+    const lines = rawInput
+      .split(/\n|;/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    for (const line of lines) {
+      const separatorIdx = line.indexOf(":");
+      if (separatorIdx < 1) {
+        continue;
+      }
+      const key = line.slice(0, separatorIdx).trim();
+      const value = line.slice(separatorIdx + 1).trim();
+
+      if (key === "authStrategies") {
+        parsed[key] = value
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean);
+      } else if (key === "initializeGit") {
+        parsed[key] = value.toLowerCase() === "true";
+      } else {
+        parsed[key] = value;
+      }
+    }
+    return parsed as Partial<ProjectConfig>;
+  }
+}
+
+export function normalizeProjectConfig(
+  raw: Partial<ProjectConfig>,
+): ProjectConfig {
+  const allowedAuth = new Set(AUTH_OPTIONS.map((opt) => opt.value));
+  const authStrategies = (raw.authStrategies || ["jwt"]).filter((item) =>
+    allowedAuth.has(item),
+  ) as AuthStrategy[];
+
+  return {
+    name: raw.name || "my-awesome-api",
+    packageManager: raw.packageManager || "npm",
+    database: "prisma-postgresql",
+    authStrategies: authStrategies.length > 0 ? authStrategies : ["jwt"],
+    description: raw.description || "",
+    author: raw.author || "",
+    license: raw.license || "MIT",
+    initializeGit: raw.initializeGit ?? true,
+  };
+}
+
+async function applyAuthSelections(
+  targetDir: string,
+  authStrategies: AuthStrategy[],
+): Promise<void> {
+  const metaPath = path.join(targetDir, "zimt.auth.json");
+  await fs.writeFile(
+    metaPath,
+    JSON.stringify({ authStrategies }, null, 2) + "\n",
+    "utf-8",
+  );
+
+  const envExamplePath = path.join(targetDir, ".env.example");
+  if (!fs.existsSync(envExamplePath)) {
+    return;
+  }
+
+  const linesToAppend: string[] = [];
+  if (authStrategies.includes("oauth-google")) {
+    linesToAppend.push(
+      "",
+      "# Google OAuth",
+      "GOOGLE_CLIENT_ID=",
+      "GOOGLE_CLIENT_SECRET=",
+      "GOOGLE_CALLBACK_URL=http://localhost:4000/auth/google/callback",
+    );
+  }
+
+  if (authStrategies.includes("oauth-github")) {
+    linesToAppend.push(
+      "",
+      "# GitHub OAuth",
+      "GITHUB_CLIENT_ID=",
+      "GITHUB_CLIENT_SECRET=",
+      "GITHUB_CALLBACK_URL=http://localhost:4000/auth/github/callback",
+    );
+  }
+
+  if (authStrategies.includes("api-key")) {
+    linesToAppend.push("", "# API Key", "API_KEY_HEADER=x-api-key");
+  }
+
+  if (linesToAppend.length === 0) {
+    return;
+  }
+
+  const current = await fs.readFile(envExamplePath, "utf-8");
+  const missing = linesToAppend.filter((line) => !current.includes(line));
+  if (missing.length > 0) {
+    await fs.appendFile(envExamplePath, `${missing.join("\n")}\n`, "utf-8");
+  }
 }

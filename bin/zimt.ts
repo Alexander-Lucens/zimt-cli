@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { resourceGeneratorCommand } from '../src/commands/resource-generator';
-import { createProject, promptProjectConfig } from '../src/commands/init';
+import {
+    createProject,
+    normalizeProjectConfig,
+    parseProjectConfigInput,
+    promptProjectConfig,
+} from '../src/commands/init';
 import chalk from 'chalk';
 import * as prompts from '@clack/prompts';
 import * as path from 'path';
@@ -18,7 +23,8 @@ program
     .command('new [name]')
     .alias('n')
     .description('Create a new production-ready NestJS project')
-    .action(async (name?: string) => {
+    .option('-c, --config <input>', 'JSON config path, inline JSON, or pseudo key:value config')
+    .action(async (name?: string, options?: { config?: string }) => {
         try {
             // Get project name
             const projectName = name || 
@@ -59,8 +65,14 @@ program
                 await fs.remove(targetDir);
             }
 
-            // Prompt for configuration
-            const config = await promptProjectConfig(projectName);
+                        // Prompt for configuration or load from JSON/pseudo config
+                        const presetConfig = options?.config
+                            ? parseProjectConfigInput(options.config)
+                            : undefined;
+
+                        const config = presetConfig
+                            ? normalizeProjectConfig({ ...presetConfig, name: projectName })
+                            : await promptProjectConfig(projectName);
 
             // Create project
             await createProject(config, targetDir);

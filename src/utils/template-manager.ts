@@ -9,7 +9,7 @@ export interface TemplateContext {
   license?: string;
   packageManager: "npm" | "yarn" | "pnpm";
   database?: string;
-  authStrategy?: string;
+  authStrategies?: string[];
 }
 
 /**
@@ -72,7 +72,7 @@ async function processEjsTemplate(
     license: context.license || "UNLICENSED",
     packageManager: context.packageManager,
     database: context.database || "prisma-postgresql",
-    authStrategy: context.authStrategy || "jwt",
+    authStrategies: context.authStrategies || ["jwt"],
   });
 
   // Remove .ejs extension from target path
@@ -95,6 +95,6 @@ export function renderTemplate(
     license: context.license || "UNLICENSED",
     packageManager: context.packageManager,
     database: context.database || "prisma-postgresql",
-    authStrategy: context.authStrategy || "jwt",
+    authStrategies: context.authStrategies || ["jwt"],
   });
 }

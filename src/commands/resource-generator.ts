@@ -4,6 +4,7 @@ import * as path from "path";
 import chalk from "chalk";
 import { Project, SyntaxKind, Node, ImportDeclaration } from "ts-morph";
 import * as prompts from "@clack/prompts";
+import { ResourceField } from "../types";
 
 export const resourceGeneratorCommand = new Command("generate")
   .alias("g")
@@ -12,11 +13,16 @@ export const resourceGeneratorCommand = new Command("generate")
     "Generate a new resource (Module, Controller, Service, DTO, Repository)",
   )
   .argument("<name>", "Name of the resource (e.g. product, order)")
-  .action(async (name: string) => {
+  .option(
+    "-s, --schema <input>",
+    "Path to schema file, inline JSON, or CREATE TABLE SQL",
+  )
+  .action(async (name: string, options: { schema?: string }) => {
     try {
       const resourceName = name.toLowerCase();
       const ResourceName = capitalize(resourceName);
       const targetDir = process.cwd();
+      const fields = await parseResourceFields(options.schema);
 
       // Verify we're in a NestJS project
       const appModulePath = path.join(targetDir, "src", "app.module.ts");
@@ -44,8 +50,8 @@ export const resourceGeneratorCommand = new Command("generate")
       await generateModule(resourceDir, resourceName, ResourceName);
       await generateController(resourceDir, resourceName, ResourceName);
       await generateService(resourceDir, resourceName, ResourceName);
-      await generateDTO(dtoDir, resourceName, ResourceName);
-      await generateEntity(entitiesDir, resourceName, ResourceName);
+      await generateDTO(dtoDir, resourceName, ResourceName, fields);
+      await generateEntity(entitiesDir, resourceName, ResourceName, fields);
       await generateRepository(resourceDir, resourceName, ResourceName);
       // Generate test files
       await generateUnitTests(resourceDir, resourceName, ResourceName);
@@ -227,13 +233,49 @@ async function generateDTO(
   dtoDir: string,
   name: string,
   Name: string,
+  fields: ResourceField[],
 ): Promise<void> {
-  const createDto = `import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
+  const validators = new Set<string>(["IsOptional"]);
+  for (const field of fields) {
+    if (field.type === "string" || field.type === "uuid") validators.add("IsString");
+    if (field.type === "number") validators.add("IsNumber");
+    if (field.type === "boolean") validators.add("IsBoolean");
+    if (field.type === "date") validators.add("IsDateString");
+    if (field.required !== false) validators.add("IsNotEmpty");
+  }
+
+  const createFields = fields
+    .map((field) => {
+      const decorators: string[] = [];
+      if (field.required === false) {
+        decorators.push("  @IsOptional()");
+      } else {
+        decorators.push("  @IsNotEmpty()");
+      }
+
+      if (field.type === "string" || field.type === "uuid") {
+        decorators.push("  @IsString()");
+      }
+      if (field.type === "number") {
+        decorators.push("  @IsNumber()");
+      }
+      if (field.type === "boolean") {
+        decorators.push("  @IsBoolean()");
+      }
+      if (field.type === "date") {
+        decorators.push("  @IsDateString()");
+      }
+
+      return `${decorators.join("\n")}\n  ${field.name}${
+        field.required === false ? "?" : ""
+      }: ${toTsType(field)};`;
+    })
+    .join("\n\n");
+
+  const createDto = `import { ${Array.from(validators).sort().join(", ")} } from 'class-validator';
 
 export class Create${Name}Dto {
-  @IsNotEmpty()
-  @IsString()
-  name: string;
+${createFields}
 
 }
 `;
@@ -252,10 +294,15 @@ async function generateEntity(
   entitiesDir: string,
   name: string,
   Name: string,
+  fields: ResourceField[],
 ): Promise<void> {
+  const customFields = fields
+    .map((field) => `  ${field.name}: ${toTsType(field)};`)
+    .join("\n");
+
   const content = `export interface ${Name} {
   id: string;
-  name: string;
+${customFields}
   createdAt: Date;
   updatedAt: Date;
 }
@@ -331,7 +378,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
   private mapToDomain(item: Prisma${Name}): ${Name} {
     return {
       id: item.id,
-      name: item.name,
+      ...item,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
     };
@@ -347,6 +394,151 @@ export class Prisma${Name}Repository implements I${Name}Repository {
     path.join(dir, `${name}.repository.ts`),
     prismaRepoContent,
   );
+}
+
+async function parseResourceFields(schemaInput?: string): Promise<ResourceField[]> {
+  if (!schemaInput) {
+    return [{ name: "name", type: "string", required: true }];
+  }
+
+  let raw = schemaInput.trim();
+  if (await fs.pathExists(raw)) {
+    raw = await fs.readFile(raw, "utf-8");
+  }
+
+  const parsedJson = tryParseJson(raw);
+  if (parsedJson) {
+    const fields = normalizeJsonFields(parsedJson);
+    return ensureDefaultNameField(fields);
+  }
+
+  const sqlFields = parseSqlFields(raw);
+  if (sqlFields.length > 0) {
+    return ensureDefaultNameField(sqlFields);
+  }
+
+  throw new Error(
+    "Unsupported schema format. Use JSON array/object or CREATE TABLE SQL.",
+  );
+}
+
+function tryParseJson(raw: string): unknown | null {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeJsonFields(input: unknown): ResourceField[] {
+  if (Array.isArray(input)) {
+    return (input as Array<any>).map((field) => ({
+      name: String(field.name),
+      type: normalizeFieldType(field.type),
+      required: field.required !== false,
+      isArray: field.isArray === true,
+    }));
+  }
+
+  if (input && typeof input === "object" && Array.isArray((input as any).fields)) {
+    return normalizeJsonFields((input as any).fields);
+  }
+
+  return [];
+}
+
+function parseSqlFields(sql: string): ResourceField[] {
+  const match = sql.match(/create\s+table\s+[^\(]+\(([^;]+)\)/i);
+  if (!match) {
+    return [];
+  }
+
+  const body = match[1];
+  const rows = body
+    .split(",")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^primary\s+key/i.test(line));
+
+  const fields: ResourceField[] = [];
+  for (const row of rows) {
+    const columnMatch = row.match(/^"?([a-zA-Z_][a-zA-Z0-9_]*)"?\s+([a-zA-Z0-9\(\)]+)/);
+    if (!columnMatch) {
+      continue;
+    }
+
+    const [, name, sqlType] = columnMatch;
+    if (["id", "created_at", "updated_at", "createdAt", "updatedAt"].includes(name)) {
+      continue;
+    }
+
+    fields.push({
+      name,
+      type: normalizeSqlType(sqlType),
+      required: !/null/i.test(row),
+    });
+  }
+
+  return fields;
+}
+
+function normalizeSqlType(sqlType: string): ResourceField["type"] {
+  const value = sqlType.toLowerCase();
+  if (value.includes("uuid")) return "uuid";
+  if (value.includes("int") || value.includes("numeric") || value.includes("decimal")) return "number";
+  if (value.includes("bool")) return "boolean";
+  if (value.includes("date") || value.includes("time")) return "date";
+  return "string";
+}
+
+function normalizeFieldType(type: string): ResourceField["type"] {
+  switch ((type || "string").toLowerCase()) {
+    case "uuid":
+      return "uuid";
+    case "number":
+    case "int":
+    case "integer":
+    case "float":
+      return "number";
+    case "boolean":
+    case "bool":
+      return "boolean";
+    case "date":
+    case "datetime":
+      return "date";
+    default:
+      return "string";
+  }
+}
+
+function ensureDefaultNameField(fields: ResourceField[]): ResourceField[] {
+  const sanitized = fields.filter((field) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(field.name));
+  if (sanitized.some((field) => field.name === "name")) {
+    return sanitized;
+  }
+  return [{ name: "name", type: "string", required: true }, ...sanitized];
+}
+
+function toTsType(field: ResourceField): string {
+  let base: string;
+  switch (field.type) {
+    case "number":
+      base = "number";
+      break;
+    case "boolean":
+      base = "boolean";
+      break;
+    case "date":
+      base = "string";
+      break;
+    case "uuid":
+      base = "string";
+      break;
+    default:
+      base = "string";
+  }
+
+  return field.isArray ? `${base}[]` : base;
 }
 
 async function updateAppModule(
